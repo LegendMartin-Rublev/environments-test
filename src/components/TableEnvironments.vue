@@ -5,11 +5,11 @@
             <tr>
                 <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Name</th>
 
-                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                <th class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
                 
-                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">User</th>
+                <th class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">User</th>
 
-                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                <th class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
             </tr>
         </thead>
 
@@ -19,20 +19,32 @@
                     {{ environment.name }}
                 </td>
 
-                <td class="px-6 py-4 whitespace-nowrap">
+                <td class="px-6 py-4 whitespace-nowrap text-center">
                     <span :class="isEnvironmentOccupied(environment.status)" class="inline-flex text-xs leading-5 font-bold rounded-full uppercase w-[66px] justify-center font-mono">
                         {{ environment.status }}
                     </span>
                 </td>
 
-                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                    {{ environment.user || 'Available' }}
+                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 text-center">
+                    {{ environment.user || '' }}
                 </td>
 
-                <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                    <button v-if="environment.status === 'vacant'" class="bg-white hover:bg-green-600 text-green-600 hover:text-white font-bold uppercase py-2 px-4 border-2 border-green-600 rounded-lg transition-colors duration-200 cursor-pointer">
+                <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-center">
+                    <button 
+                        v-if="environment.status === 'vacant'" 
+                        @click="occupyEnvironment(environment.id)"
+                        class="bg-white hover:bg-green-600 text-green-600 hover:text-white font-bold uppercase py-2 px-4 border-2 border-green-600 rounded-lg transition-colors duration-200 cursor-pointer font-mono"
+                    >
                         Occupy
-                    </button>нпм
+                    </button>
+
+                    <button 
+                        v-else
+                        @click="leaveEnvironment(environment.id)"
+                        class="bg-white hover:bg-red-700 text-red-700 hover:text-white font-bold uppercase py-2 px-4 border-2 border-red-700 rounded-lg transition-colors duration-200 cursor-pointer font-mono"
+                    >
+                        Leave
+                    </button>
                 </td>
             </tr>
         </tbody>
@@ -41,19 +53,112 @@
 </template>
 
 <script setup>
-import { ref } from 'vue'
+import { ref, onMounted } from 'vue'
+import { database } from '../firebase'
+import { ref as dbRef, onValue, set } from 'firebase/database'
 
-const environments = ref([
-  { id: 1, name: 'Stage-FE', status: 'occupied', user: 'John Smith' },
-  { id: 2, name: 'Stage-BE', status: 'occupied', user: 'Sarah Johnson' },
-  { id: 3, name: 'Preproduction-FE', status: 'occupied', user: 'Mike Chen' },
-  { id: 4, name: 'Test-FE', status: 'vacant', user: null },
-  { id: 5, name: 'Test-BE', status: 'occupied', user: 'Emma Wilson' }
-])
+// Predefined users list with emails and names
+const authorizedUsers = [
+  { email: 'martin.rublev@l1.com', name: 'Martin Rublev' },
+  { email: 'sarah.johnson@oddspedia.com', name: 'Deyan Chakarov' },
+  { email: 'mike.chen@oddspedia.com', name: 'Ivo Georgiev' },
+  { email: 'emma.wilson@oddspedia.com', name: 'Petar Valchev' },
+  { email: 'martin.rublev@oddspedia.com', name: 'Kris Kulev' }
+]
+
+const currentUser = ref(null)
+const environments = ref([])
+
+const authenticateUser = () => {
+  // Check if user is already authenticated
+  const storedUser = localStorage.getItem('environmentsUser')
+  if (storedUser) {
+    currentUser.value = JSON.parse(storedUser)
+    return
+  }
+
+  // Ask for email
+  const email = prompt('Please enter your email:')
+  if (!email || !email.trim()) {
+    authenticateUser() // Ask again if empty
+    return
+  }
+
+  // Check if email is authorized
+  const user = authorizedUsers.find(u => u.email.toLowerCase() === email.trim().toLowerCase())
+  if (user) {
+    currentUser.value = user
+    localStorage.setItem('environmentsUser', JSON.stringify(user))
+  } else {
+    alert('Email not authorized. Please contact your administrator.')
+    authenticateUser() // Ask again if not authorized
+  }
+}
+
+const occupyEnvironment = (id) => {
+  const env = environments.value.find(e => e.id === id)
+  if (env && currentUser.value) {
+    // Update Firebase
+    const environmentRef = dbRef(database, `environments/${id}`)
+    set(environmentRef, {
+      id: env.id,
+      name: env.name,
+      status: 'occupied',
+      user: currentUser.value.name
+    })
+  }
+}
+
+const leaveEnvironment = (id) => {
+  const env = environments.value.find(e => e.id === id)
+  if (env) {
+    // Update Firebase
+    const environmentRef = dbRef(database, `environments/${id}`)
+    set(environmentRef, {
+      id: env.id,
+      name: env.name,
+      status: 'vacant',
+      user: null
+    })
+  }
+}
 
 const isEnvironmentOccupied = (status) => {
   return status === 'occupied'
     ? 'bg-red-700 text-white'
     : 'bg-green-600 text-white'
 }
+
+const initializeFirebase = () => {
+  const environmentsRef = dbRef(database, 'environments')
+  
+  // Listen for changes in real-time
+  onValue(environmentsRef, (snapshot) => {
+    const data = snapshot.val()
+    if (data) {
+      // Convert Firebase object to array
+      environments.value = Object.values(data)
+    } else {
+      // Initialize with default data if Firebase is empty
+      const defaultEnvironments = [
+        { id: 1, name: 'Stage-FE', status: 'vacant', user: null },
+        { id: 2, name: 'Stage-BE', status: 'vacant', user: null },
+        { id: 3, name: 'Preproduction-FE', status: 'vacant', user: null },
+        { id: 4, name: 'Test-FE', status: 'vacant', user: null },
+        { id: 5, name: 'Test-BE', status: 'vacant', user: null }
+      ]
+      
+      // Save default data to Firebase
+      defaultEnvironments.forEach(env => {
+        const envRef = dbRef(database, `environments/${env.id}`)
+        set(envRef, env)
+      })
+    }
+  })
+}
+
+onMounted(() => {
+  authenticateUser()
+  initializeFirebase()
+})
 </script>
