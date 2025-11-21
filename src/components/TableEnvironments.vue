@@ -55,27 +55,30 @@
 <script setup>
 import { ref, onMounted } from 'vue'
 import { database } from '../firebase'
-import { ref as dbRef, onValue, set } from 'firebase/database'
-
-// Predefined users list with emails and names
-const authorizedUsers = [
-  { email: 'martin.rublev@l1.com', name: 'Martin Rublev' },
-  { email: 'sarah.johnson@oddspedia.com', name: 'Deyan Chakarov' },
-  { email: 'mike.chen@oddspedia.com', name: 'Ivo Georgiev' },
-  { email: 'emma.wilson@oddspedia.com', name: 'Petar Valchev' },
-  { email: 'martin.rublev@oddspedia.com', name: 'Kris Kulev' }
-]
+import { ref as dbRef, onValue, set, get } from 'firebase/database'
 
 const currentUser = ref(null)
 const environments = ref([])
+const authorizedUsers = ref([])
 
-const authenticateUser = () => {
+const loadAuthorizedUsers = async () => {
+  const usersRef = dbRef(database, 'authorizedUsers')
+  const snapshot = await get(usersRef)
+  if (snapshot.exists()) {
+    authorizedUsers.value = Object.values(snapshot.val())
+  }
+}
+
+const authenticateUser = async () => {
   // Check if user is already authenticated
   const storedUser = localStorage.getItem('environmentsUser')
   if (storedUser) {
     currentUser.value = JSON.parse(storedUser)
     return
   }
+
+  // Load authorized users from Firebase
+  await loadAuthorizedUsers()
 
   // Ask for email
   const email = prompt('Please enter your email:')
@@ -85,7 +88,7 @@ const authenticateUser = () => {
   }
 
   // Check if email is authorized
-  const user = authorizedUsers.find(u => u.email.toLowerCase() === email.trim().toLowerCase())
+  const user = authorizedUsers.value.find(u => u.email.toLowerCase() === email.trim().toLowerCase())
   if (user) {
     currentUser.value = user
     localStorage.setItem('environmentsUser', JSON.stringify(user))
