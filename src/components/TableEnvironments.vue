@@ -1,35 +1,41 @@
 <template>
-  <div class="max-w-3xl mx-auto bg-white rounded-xl shadow-md overflow-hidden">  
+  <div class="max-w-5xl mx-auto bg-white rounded-xl shadow-md overflow-hidden">  
     <table class="min-w-full bg-white border border-gray-200">
         <thead class="bg-gray-50">
             <tr>
-                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Name</th>
+                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-32">Name</th>
 
-                <th class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                <th class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider w-32">Status</th>
                 
-                <th class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">User</th>
+                <th class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider w-64">User</th>
 
-                <th class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                <th class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider w-48">Last Updated</th>
+
+                <th class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider w-48">Actions</th>
             </tr>
         </thead>
 
         <tbody class="bg-white divide-y divide-gray-200">
             <tr v-for="environment in environments" :key="environment.id" class="hover:bg-gray-50">
-                <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 w-64">
                     {{ environment.name }}
                 </td>
 
-                <td class="px-6 py-4 whitespace-nowrap text-center">
+                <td class="px-6 py-4 whitespace-nowrap text-center w-32">
                     <span :class="isEnvironmentOccupied(environment.status)" class="inline-flex text-xs leading-5 font-bold rounded-full uppercase w-[66px] justify-center font-mono">
                         {{ environment.status }}
                     </span>
                 </td>
 
-                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 text-center">
+                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 text-center w-48">
                     {{ environment.user || '' }}
                 </td>
 
-                <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-center">
+                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 text-center w-40">
+                    {{ formatLastUpdated(environment.lastUpdated) }}
+                </td>
+
+                <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-center w-40">
                     <button 
                         v-if="environment.status === 'vacant'" 
                         @click="occupyEnvironment(environment.id)"
@@ -69,11 +75,14 @@ const loadAuthorizedUsers = async () => {
   }
 }
 
+const emit = defineEmits(['user-authenticated'])
+
 const authenticateUser = async () => {
   // Check if user is already authenticated
   const storedUser = localStorage.getItem('environmentsUser')
   if (storedUser) {
     currentUser.value = JSON.parse(storedUser)
+    emit('user-authenticated', currentUser.value.name)
     return
   }
 
@@ -81,7 +90,7 @@ const authenticateUser = async () => {
   await loadAuthorizedUsers()
 
   // Ask for email
-  const email = prompt('Please enter your email:')
+  const email = prompt('Please enter your work email:')
   if (!email || !email.trim()) {
     authenticateUser() // Ask again if empty
     return
@@ -92,6 +101,7 @@ const authenticateUser = async () => {
   if (user) {
     currentUser.value = user
     localStorage.setItem('environmentsUser', JSON.stringify(user))
+    emit('user-authenticated', currentUser.value.name)
   } else {
     alert('Email not authorized. Please contact your administrator.')
     authenticateUser() // Ask again if not authorized
@@ -107,7 +117,8 @@ const occupyEnvironment = (id) => {
       id: env.id,
       name: env.name,
       status: 'occupied',
-      user: currentUser.value.name
+      user: currentUser.value.name,
+      lastUpdated: Date.now()
     })
   }
 }
@@ -121,7 +132,8 @@ const leaveEnvironment = (id) => {
       id: env.id,
       name: env.name,
       status: 'vacant',
-      user: null
+      user: null,
+      lastUpdated: Date.now()
     })
   }
 }
@@ -130,6 +142,24 @@ const isEnvironmentOccupied = (status) => {
   return status === 'occupied'
     ? 'bg-red-700 text-white'
     : 'bg-green-600 text-white'
+}
+
+const formatLastUpdated = (timestamp) => {
+  if (!timestamp) return 'Never'
+  
+  const date = new Date(timestamp)
+  const now = new Date()
+  const diffMs = now - date
+  const diffMins = Math.floor(diffMs / 60000)
+  const diffHours = Math.floor(diffMs / 3600000)
+  const diffDays = Math.floor(diffMs / 86400000)
+  
+  if (diffMins < 1) return 'Just now'
+  if (diffMins < 60) return `${diffMins}m ago`
+  if (diffHours < 24) return `${diffHours}h ago`
+  if (diffDays < 7) return `${diffDays}d ago`
+  
+  return date.toLocaleDateString()
 }
 
 const initializeFirebase = () => {
@@ -144,11 +174,11 @@ const initializeFirebase = () => {
     } else {
       // Initialize with default data if Firebase is empty
       const defaultEnvironments = [
-        { id: 1, name: 'Stage-FE', status: 'vacant', user: null },
-        { id: 2, name: 'Stage-BE', status: 'vacant', user: null },
-        { id: 3, name: 'Preproduction-FE', status: 'vacant', user: null },
-        { id: 4, name: 'Test-FE', status: 'vacant', user: null },
-        { id: 5, name: 'Test-BE', status: 'vacant', user: null }
+        { id: 1, name: 'Stage-FE', status: 'vacant', user: null, lastUpdated: null },
+        { id: 2, name: 'Stage-BE', status: 'vacant', user: null, lastUpdated: null },
+        { id: 3, name: 'Preproduction-FE', status: 'vacant', user: null, lastUpdated: null },
+        { id: 4, name: 'Test-FE', status: 'vacant', user: null, lastUpdated: null },
+        { id: 5, name: 'Test-BE', status: 'vacant', user: null, lastUpdated: null }
       ]
       
       // Save default data to Firebase

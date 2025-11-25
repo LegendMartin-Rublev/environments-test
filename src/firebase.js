@@ -1,8 +1,6 @@
 import { initializeApp } from 'firebase/app'
 import { getDatabase } from 'firebase/database'
 
-// TODO: Replace with your Firebase project configuration
-// Get this from Firebase Console -> Project Settings -> Your apps -> SDK setup and configuration
 const firebaseConfig = {
   apiKey: "AIzaSyDUIZX3qm7fU2dCkxOTLb7WAYn9Sd7luIg",
   authDomain: "oddspedia-environments.firebaseapp.com",
