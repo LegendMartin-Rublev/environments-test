@@ -7,11 +7,13 @@
 
                 <th class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider w-32">Status</th>
                 
-                <th class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider w-64">User</th>
+                <th class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider w-48">User</th>
 
-                <th class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider w-48">Last Updated</th>
+                <th class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider w-64">Description</th>
 
-                <th class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider w-48">Actions</th>
+                <th class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider w-40">Last Updated</th>
+
+                <th class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider w-40">Actions</th>
             </tr>
         </thead>
 
@@ -29,6 +31,18 @@
 
                 <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 text-center w-48">
                     {{ environment.user || '' }}
+                </td>
+
+                <td class="px-6 py-4 text-sm text-gray-500 text-center w-64">
+                    <span v-if="environment.status === 'vacant'" class="text-gray-400">-</span>
+                    <input 
+                        v-else
+                        type="text"
+                        :value="environment.description || ''"
+                        @change="updateDescription(environment.id, $event.target.value)"
+                        placeholder="Add description..."
+                        class="w-full px-2 py-1 border border-gray-300 rounded text-center focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
                 </td>
 
                 <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 text-center w-40">
@@ -118,6 +132,7 @@ const occupyEnvironment = (id) => {
       name: env.name,
       status: 'occupied',
       user: currentUser.value.name,
+      description: '',
       lastUpdated: Date.now()
     })
   }
@@ -133,6 +148,23 @@ const leaveEnvironment = (id) => {
       name: env.name,
       status: 'vacant',
       user: null,
+      description: null,
+      lastUpdated: Date.now()
+    })
+  }
+}
+
+const updateDescription = (id, description) => {
+  const env = environments.value.find(e => e.id === id)
+  if (env) {
+    // Update Firebase
+    const environmentRef = dbRef(database, `environments/${id}`)
+    set(environmentRef, {
+      id: env.id,
+      name: env.name,
+      status: env.status,
+      user: env.user,
+      description: description,
       lastUpdated: Date.now()
     })
   }
@@ -174,11 +206,11 @@ const initializeFirebase = () => {
     } else {
       // Initialize with default data if Firebase is empty
       const defaultEnvironments = [
-        { id: 1, name: 'Stage-FE', status: 'vacant', user: null, lastUpdated: null },
-        { id: 2, name: 'Stage-BE', status: 'vacant', user: null, lastUpdated: null },
-        { id: 3, name: 'Preproduction-FE', status: 'vacant', user: null, lastUpdated: null },
-        { id: 4, name: 'Test-FE', status: 'vacant', user: null, lastUpdated: null },
-        { id: 5, name: 'Test-BE', status: 'vacant', user: null, lastUpdated: null }
+        { id: 1, name: 'Stage-FE', status: 'vacant', user: null, description: null, lastUpdated: null },
+        { id: 2, name: 'Stage-BE', status: 'vacant', user: null, description: null, lastUpdated: null },
+        { id: 3, name: 'Preproduction-FE', status: 'vacant', user: null, description: null, lastUpdated: null },
+        { id: 4, name: 'Test-FE', status: 'vacant', user: null, description: null, lastUpdated: null },
+        { id: 5, name: 'Test-BE', status: 'vacant', user: null, description: null, lastUpdated: null }
       ]
       
       // Save default data to Firebase
