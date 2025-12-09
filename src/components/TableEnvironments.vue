@@ -1,5 +1,5 @@
 <template>
-  <div class="max-w-5xl mx-auto bg-white rounded-xl shadow-md overflow-hidden">  
+  <div class="w-5xl mx-auto bg-white">  
     <table class="min-w-full bg-white border border-gray-200">
         <thead class="bg-gray-50">
             <tr>

@@ -1,0 +1,10 @@
+{
+  "manifest_version": 3,
+  "name": "Oddspedia Environments",
+  "version": "1.0.0",
+  "description": "Track Oddspedia environment availability",
+  "action": {
+    "default_popup": "index.html"
+  },
+  "permissions": []
+}
